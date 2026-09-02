@@ -1,5 +1,17 @@
 # X (Twitter) Interaction AI Agent
 
+<p align="center">
+  <a href="https://youtu.be/HXYUNBy6mJM" target="_blank">
+    <img src="assets/demo_thumbnail.png" alt="X AI Agent Demo Video" width="100%" />
+  </a>
+</p>
+
+<p align="center">
+  🎬 <b><a href="https://youtu.be/HXYUNBy6mJM" target="_blank">Watch the Full Live Demo Walkthrough on YouTube (Click Image to Play)</a></b>
+</p>
+
+---
+
 An intelligent, autonomous interaction system for X (Twitter) built on Python, Playwright, Pydantic, SQLite, and Google Gemini.
 
 Designed strictly around the core architecture principle: **"The AI plans. The deterministic system executes."**
