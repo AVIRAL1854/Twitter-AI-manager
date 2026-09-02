@@ -134,18 +134,22 @@ INTERACTION_GOAL="Engage casually and organically with new startups, dev launche
 Playwright uses persistent browser profile directories so you only need to log in **once**.
 
 ### 1. Log in to X (Twitter)
+
 ```bash
 uv run python main.py --login
 ```
+
 1. Chromium opens to `https://x.com/login`.
 2. Log into your X account and complete 2FA.
 3. Return to the terminal and press **ENTER**.
 4. Saved in `browser_data/x_profile/`.
 
 ### 2. Log in to ChatGPT (for `--jugad` mode)
+
 ```bash
 uv run python main.py --login-chatgpt
 ```
+
 1. Chromium opens to `https://chatgpt.com`.
 2. Log into your OpenAI / Google / Apple account.
 3. Return to the terminal and press **ENTER**.
@@ -155,27 +159,28 @@ uv run python main.py --login-chatgpt
 
 ## 🛠️ CLI Flags & Options Reference
 
-| Flag / Option | Aliases | Description | Default |
-| :--- | :--- | :--- | :--- |
-| `-n` | `--count`, `--limit`, `--target-posts`, `--max-interactions` | Target number of interactions/posts to perform in the run | `10` |
-| `-s` | `--max-scrolls`, `--max-scroll-attempts`, `--scroll-limit` | Maximum feed scroll attempts before stopping | `10` |
-| **`-i`** | **`--max-inner-interactions`, `--inner-limit`, `--inner-interactions`** | **Max comments to interact with inside a single post thread** | **`10`** |
-| **`--no-deep-dive`** | **`--disable-deep-dive`** | **Disable diving inside posts to interact with thread comments** | *(Deep Dive is enabled by default)* |
-| `--deep-dive` | *(none)* | Explicitly enable diving inside posts | `True` |
-| `--target-url` | *(none)* | Target URL (Home feed, search query, or list) | `https://x.com/home` |
-| `--jugad` | *(none)* | Use free ChatGPT Web interface via Playwright (zero API cost) | `False` |
-| `--mock-ai` | *(none)* | Use deterministic offline mock planner | `False` |
-| `--dry-run` | *(none)* | Simulate discovery, planning, and validation without clicking/typing | `False` |
-| `--login` | *(none)* | Open interactive browser to log in to X (Twitter) | `False` |
-| `--login-chatgpt` | *(none)* | Open interactive browser to log in to ChatGPT | `False` |
-| `--headless` | *(none)* | Run browser in background without opening GUI window | `False` |
-| `--debug` | *(none)* | Enable detailed debug level logging | `False` |
+| Flag / Option        | Aliases                                                                 | Description                                                          | Default                             |
+| :------------------- | :---------------------------------------------------------------------- | :------------------------------------------------------------------- | :---------------------------------- |
+| `-n`                 | `--count`, `--limit`, `--target-posts`, `--max-interactions`            | Target number of interactions/posts to perform in the run            | `10`                                |
+| `-s`                 | `--max-scrolls`, `--max-scroll-attempts`, `--scroll-limit`              | Maximum feed scroll attempts before stopping                         | `10`                                |
+| **`-i`**             | **`--max-inner-interactions`, `--inner-limit`, `--inner-interactions`** | **Max comments to interact with inside a single post thread**        | **`10`**                            |
+| **`--no-deep-dive`** | **`--disable-deep-dive`**                                               | **Disable diving inside posts to interact with thread comments**     | _(Deep Dive is enabled by default)_ |
+| `--deep-dive`        | _(none)_                                                                | Explicitly enable diving inside posts                                | `True`                              |
+| `--target-url`       | _(none)_                                                                | Target URL (Home feed, search query, or list)                        | `https://x.com/home`                |
+| `--jugad`            | _(none)_                                                                | Use free ChatGPT Web interface via Playwright (zero API cost)        | `False`                             |
+| `--mock-ai`          | _(none)_                                                                | Use deterministic offline mock planner                               | `False`                             |
+| `--dry-run`          | _(none)_                                                                | Simulate discovery, planning, and validation without clicking/typing | `False`                             |
+| `--login`            | _(none)_                                                                | Open interactive browser to log in to X (Twitter)                    | `False`                             |
+| `--login-chatgpt`    | _(none)_                                                                | Open interactive browser to log in to ChatGPT                        | `False`                             |
+| `--headless`         | _(none)_                                                                | Run browser in background without opening GUI window                 | `False`                             |
+| `--debug`            | _(none)_                                                                | Enable detailed debug level logging                                  | `False`                             |
 
 ---
 
 ## 💡 Practical CLI Examples
 
 ### 1. Default Run (Gemini API + Deep Dive)
+
 ```bash
 # Run with default 10 interactions, exploring thread comments inside interesting posts
 uv run python main.py
@@ -188,6 +193,7 @@ uv run python main.py --no-deep-dive -n 10
 ```
 
 ### 2. Free ChatGPT Web Mode (`--jugad`)
+
 ```bash
 # Run with free ChatGPT Web planner + Deep Dive enabled
 uv run python main.py --jugad
@@ -200,6 +206,7 @@ uv run python main.py --jugad --target-url "https://x.com/search?q=buildinpublic
 ```
 
 ### 3. Targeting Search Feeds & Topics
+
 ```bash
 # Target tech startup launch tweets with thread comment engagement
 uv run python main.py --target-url "https://x.com/search?q=startup%20launch&f=live" -n 10 -i 3
@@ -209,6 +216,7 @@ uv run python main.py --target-url "https://x.com/search?q=hiring%20fullstack%20
 ```
 
 ### 4. Testing & Dry-Run Simulations
+
 ```bash
 # Test the complete pipeline safely without clicking or liking
 uv run python main.py --dry-run -n 5 -i 2
