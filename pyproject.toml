@@ -1,0 +1,27 @@
+[project]
+name = "automatic-social-media-agent"
+version = "0.1.0"
+description = "AI-assisted interaction system for X (Twitter)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "playwright>=1.40.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "google-genai>=1.0.0",
+    "aiosqlite>=0.20.0",
+    "python-dotenv>=1.0.0",
+    "rich>=13.7.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.12.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
