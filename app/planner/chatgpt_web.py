@@ -403,15 +403,36 @@ class ChatGPTWebPlanner(BasePlanner):
 
         return ""
 
-    async def _wait_for_response(self, page: Page, timeout_seconds: int = 90) -> str:
-        """Wait until ChatGPT finishes streaming and return the response text."""
+    async def _wait_for_response(self, page: Page, timeout_seconds: int = 120) -> str:
+        """Wait patiently until ChatGPT finishes generating and return the response text."""
         start_time = asyncio.get_event_loop().time()
-        logger.info("Waiting for ChatGPT to generate response...")
+        logger.info("Waiting for ChatGPT to process prompt and respond...")
 
-        # Allow generation to start
-        await asyncio.sleep(2.5)
+        # Phase 1: Allow ChatGPT time to receive and dispatch the prompt
+        await asyncio.sleep(3.5)
         await self._dismiss_modals(page)
 
+        # Phase 2: Wait up to 15 seconds for generation to actively begin
+        logger.debug("Waiting for ChatGPT generation to start...")
+        for _ in range(12):
+            if await self._check_limit_reached(page):
+                logger.warning("ChatGPT usage limit detected during response wait.")
+                raise PlanningError("ChatGPT limit reached. Starting fresh chat.")
+
+            stop_btn = page.locator(
+                '[data-testid="stop-button"], button[aria-label="Stop streaming"], button[aria-label="Stop generating"], button:has-text("Stop")'
+            ).first
+            is_generating = await stop_btn.count() > 0 and await stop_btn.is_visible()
+
+            assistant_msgs = page.locator('[data-message-author-role="assistant"]')
+            has_assistant = await assistant_msgs.count() > 0
+
+            if is_generating or has_assistant:
+                logger.info("ChatGPT generation detected. Streaming in progress...")
+                break
+            await asyncio.sleep(1.0)
+
+        # Phase 3: Wait for generation to fully complete
         last_text = ""
         steady_count = 0
 
@@ -429,20 +450,27 @@ class ChatGPTWebPlanner(BasePlanner):
             ).first
             is_generating = await stop_btn.count() > 0 and await stop_btn.is_visible()
 
-            # First attempt: Try Assistant Copy button ONLY when generation is NOT streaming
-            # This guarantees the assistant's action bar exists and avoids clicking the user prompt's copy button!
-            if not is_generating:
-                copy_text = await self._extract_via_copy_button(page)
-                if copy_text and not self._is_user_prompt_content(copy_text):
-                    try:
-                        plan = self._extract_json_from_text(copy_text)
-                        if plan and len(plan.actions) > 0:
-                            logger.info(
-                                f"Successfully parsed plan via Assistant Copy button ({len(plan.actions)} actions)."
-                            )
-                            return copy_text
-                    except Exception:
-                        pass
+            # If actively generating, wait patiently for it to finish
+            if is_generating:
+                logger.debug("ChatGPT still streaming response...")
+                await asyncio.sleep(1.5)
+                continue
+
+            # Generation has stopped - give a brief 1.5s pause for DOM and action buttons to settle
+            await asyncio.sleep(1.5)
+
+            # First attempt: Try Assistant Copy button ONLY when not generating
+            copy_text = await self._extract_via_copy_button(page)
+            if copy_text and not self._is_user_prompt_content(copy_text):
+                try:
+                    plan = self._extract_json_from_text(copy_text)
+                    if plan and len(plan.actions) > 0:
+                        logger.info(
+                            f"Successfully parsed plan via Assistant Copy button ({len(plan.actions)} actions)."
+                        )
+                        return copy_text
+                except Exception:
+                    pass
 
             # Second attempt: Extract latest assistant text directly from assistant DOM
             current_text = await self._get_latest_assistant_text(page)
@@ -452,30 +480,25 @@ class ChatGPTWebPlanner(BasePlanner):
                 try:
                     plan = self._extract_json_from_text(current_text)
                     if plan and len(plan.actions) > 0:
-                        if not is_generating or (current_text == last_text):
-                            logger.info(
-                                f"Captured complete valid ActionPlan from ChatGPT assistant DOM ({len(plan.actions)} actions, {len(current_text)} chars)."
-                            )
-                            return current_text
+                        logger.info(
+                            f"Captured complete valid ActionPlan from ChatGPT assistant DOM ({len(plan.actions)} actions, {len(current_text)} chars)."
+                        )
+                        return current_text
                 except Exception:
                     pass
 
-                if not is_generating:
-                    if current_text == last_text and len(current_text) > 10:
-                        steady_count += 1
-                        if steady_count >= 2:
-                            logger.info(
-                                f"Captured steady ChatGPT response ({len(current_text)} chars)."
-                            )
-                            return current_text
-                    else:
-                        steady_count = 0
-                        last_text = current_text
+                if current_text == last_text and len(current_text) > 10:
+                    steady_count += 1
+                    if steady_count >= 2:
+                        logger.info(
+                            f"Captured steady ChatGPT response ({len(current_text)} chars)."
+                        )
+                        return current_text
                 else:
-                    last_text = current_text
                     steady_count = 0
+                    last_text = current_text
 
-            await asyncio.sleep(1.2)
+            await asyncio.sleep(1.5)
 
         # Timeout reached: if we captured non-empty text, attempt to use it
         if last_text and len(last_text) > 20:
