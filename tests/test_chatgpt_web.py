@@ -100,3 +100,17 @@ Hope this helps!"""
         plan = await planner.plan(posts=sample_normalized_posts, remaining_budget=0)
         assert len(plan.actions) == 0
 
+    def test_is_user_prompt_content_detection(self):
+        planner = ChatGPTWebPlanner(Settings())
+        prompt_copy = """Evaluate these posts and return your ActionPlan JSON:
+{"profile": "Full-stack dev", "goal": "Engage"}
+CRITICAL INSTRUCTIONS:
+- Do NOT repeat or echo
+- Example output format: {"actions": [{"post_id": "123", "action": "like"}]}
+"""
+        assert planner._is_user_prompt_content(prompt_copy) is True
+
+        valid_response = """{"actions": [{"post_id": "999", "action": "like", "reason": "cool startup", "content": null, "priority": 1}]}"""
+        assert planner._is_user_prompt_content(valid_response) is False
+
+

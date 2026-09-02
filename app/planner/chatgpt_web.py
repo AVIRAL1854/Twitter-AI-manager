@@ -203,28 +203,81 @@ class ChatGPTWebPlanner(BasePlanner):
                 return elem
         return None
 
+    @staticmethod
+    def _is_user_prompt_content(text: str) -> bool:
+        """Check if captured text is the user prompt rather than the assistant's response."""
+        markers = [
+            "evaluate these posts",
+            "critical instructions:",
+            "token economy rules",
+            "your persona & vibe",
+            "system_prompt",
+            "example output format:",
+        ]
+        text_lower = text.lower()
+        return any(m in text_lower for m in markers)
+
     async def _extract_via_copy_button(self, page: Page) -> Optional[str]:
-        """Click the ChatGPT Copy button using JavaScript dispatch & Playwright fallback."""
+        """Click the ChatGPT Copy button specifically belonging to the assistant response."""
         try:
-            # Hover over the assistant turn to ensure action bar icons are ready
-            assistant_turn = page.locator(
-                '[data-message-author-role="assistant"], div[data-testid*="conversation-turn"]'
+            # Locate the latest assistant message turn
+            assistant_loc = page.locator(
+                '[data-message-author-role="assistant"], div[data-testid*="conversation-turn-assistant"]'
             ).last
-            if await assistant_turn.count() > 0:
+
+            if await assistant_loc.count() > 0:
                 try:
-                    await assistant_turn.hover(timeout=1000)
+                    await assistant_loc.hover(timeout=1000)
                 except Exception:
                     pass
 
-            # Dispatch JavaScript click on the copy button or SVG container
+            # Dispatch JavaScript click specifically on the assistant's copy button
             clicked = await page.evaluate("""() => {
-                // 1. Search SVG paths for copy icon
-                const paths = Array.from(document.querySelectorAll('path'));
+                // 1. Locate all assistant message elements
+                const assistantNodes = Array.from(document.querySelectorAll(
+                    '[data-message-author-role="assistant"], [data-testid*="conversation-turn-assistant"], div.agent-turn'
+                ));
+
+                if (assistantNodes.length === 0) {
+                    return false;
+                }
+
+                // Get the latest assistant turn
+                const latestAssistant = assistantNodes[assistantNodes.length - 1];
+
+                // Find the enclosing turn container that houses the message and its action bar
+                let turnContainer = latestAssistant.closest('article') ||
+                                    latestAssistant.closest('[data-testid*="conversation-turn"]') ||
+                                    latestAssistant.parentElement?.closest('[data-testid*="conversation-turn"]') ||
+                                    latestAssistant.parentElement ||
+                                    latestAssistant;
+
+                // Safety check: ensure this container doesn't belong to the user
+                if (turnContainer.querySelector('[data-message-author-role="user"]') && !turnContainer.querySelector('[data-message-author-role="assistant"]')) {
+                    return false;
+                }
+
+                // 2. Search for copy buttons strictly within the assistant's turn container
+                const copyBtns = Array.from(turnContainer.querySelectorAll(
+                    'button[aria-label="Copy"], [data-testid="copy-turn-action-button"], button[data-testid="copy-turn-action-button"], button[aria-label="Copy code"]'
+                ));
+
+                for (let i = copyBtns.length - 1; i >= 0; i--) {
+                    const btn = copyBtns[i];
+                    if (!btn.closest('[data-message-author-role="user"]')) {
+                        btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                        if (typeof btn.click === 'function') btn.click();
+                        return true;
+                    }
+                }
+
+                // 3. Search for the copy SVG path specifically inside the assistant turn container
+                const paths = Array.from(turnContainer.querySelectorAll('path'));
                 for (let i = paths.length - 1; i >= 0; i--) {
                     const d = paths[i].getAttribute('d') || '';
                     if (d.includes('15.1006') || d.includes('M15.1') || d.includes('M16 1H4')) {
                         const target = paths[i].closest('button') || paths[i].closest('span') || paths[i];
-                        if (target) {
+                        if (target && !target.closest('[data-message-author-role="user"]')) {
                             target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
                             if (typeof target.click === 'function') target.click();
                             return true;
@@ -232,64 +285,66 @@ class ChatGPTWebPlanner(BasePlanner):
                     }
                 }
 
-                // 2. Search buttons with aria-label / testid
-                const copyBtns = document.querySelectorAll(
-                    'button[aria-label="Copy"], [data-testid="copy-turn-action-button"], button[data-testid="copy-turn-action-button"], button[aria-label="Copy code"]'
-                );
-                if (copyBtns.length > 0) {
-                    const btn = copyBtns[copyBtns.length - 1];
-                    btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                    if (typeof btn.click === 'function') btn.click();
-                    return true;
-                }
-
                 return false;
             }""")
 
             if clicked:
-                logger.info("Successfully clicked ChatGPT Copy button.")
+                logger.info("Successfully clicked Assistant's Copy button.")
                 await asyncio.sleep(0.5)
                 clipboard_text = await page.evaluate("() => navigator.clipboard.readText()")
-                if clipboard_text and ("actions" in clipboard_text or "post_id" in clipboard_text or "id" in clipboard_text):
-                    logger.info(f"Captured text from clipboard via Copy button ({len(clipboard_text)} chars).")
-                    return clipboard_text
+                if clipboard_text:
+                    if self._is_user_prompt_content(clipboard_text):
+                        logger.warning("Clipboard captured user prompt instead of assistant response. Ignoring.")
+                        return None
 
-        except Exception as e:
-            logger.debug(f"JS Copy button click note: {e}")
-
-        # Playwright direct force-click fallback
-        try:
-            copy_selectors = [
-                'button:has(svg path[d*="15.1006"])',
-                '[data-testid="copy-turn-action-button"]',
-                'button[data-testid="copy-turn-action-button"]',
-                'button[aria-label="Copy"]',
-                'button:has-text("Copy code")',
-                'button:has-text("Copy")',
-            ]
-            for sel in copy_selectors:
-                btn = page.locator(sel).last
-                if await btn.count() > 0:
-                    await btn.click(force=True, timeout=1000)
-                    await asyncio.sleep(0.5)
-                    clipboard_text = await page.evaluate("() => navigator.clipboard.readText()")
-                    if clipboard_text and ("actions" in clipboard_text or "post_id" in clipboard_text):
-                        logger.info(f"Captured text via Playwright force-click Copy ({len(clipboard_text)} chars).")
+                    if "actions" in clipboard_text or "post_id" in clipboard_text or "id" in clipboard_text:
+                        logger.info(f"Captured text from clipboard via Assistant Copy button ({len(clipboard_text)} chars).")
                         return clipboard_text
+
         except Exception as e:
-            logger.debug(f"Playwright force-click Copy note: {e}")
+            logger.debug(f"JS Assistant Copy button click note: {e}")
+
+        # Playwright direct force-click fallback strictly on the assistant turn
+        try:
+            assistant_turn = page.locator(
+                '[data-message-author-role="assistant"], div[data-testid*="conversation-turn-assistant"]'
+            ).last
+            if await assistant_turn.count() > 0:
+                parent_turn = assistant_turn.locator(
+                    "xpath=./ancestor-or-self::article | ./ancestor-or-self::div[contains(@data-testid, 'conversation-turn')]"
+                ).last
+                target_scope = parent_turn if await parent_turn.count() > 0 else assistant_turn
+
+                copy_selectors = [
+                    'button:has(svg path[d*="15.1006"])',
+                    '[data-testid="copy-turn-action-button"]',
+                    'button[data-testid="copy-turn-action-button"]',
+                    'button[aria-label="Copy"]',
+                    'button:has-text("Copy code")',
+                    'button:has-text("Copy")',
+                ]
+                for sel in copy_selectors:
+                    btn = target_scope.locator(sel).last
+                    if await btn.count() > 0:
+                        await btn.click(force=True, timeout=1000)
+                        await asyncio.sleep(0.5)
+                        clipboard_text = await page.evaluate("() => navigator.clipboard.readText()")
+                        if (
+                            clipboard_text
+                            and not self._is_user_prompt_content(clipboard_text)
+                            and ("actions" in clipboard_text or "post_id" in clipboard_text)
+                        ):
+                            logger.info(f"Captured text via Playwright assistant Copy ({len(clipboard_text)} chars).")
+                            return clipboard_text
+        except Exception as e:
+            logger.debug(f"Playwright assistant Copy note: {e}")
 
         return None
 
     async def _get_latest_assistant_text(self, page: Page) -> str:
         """Extract text from the latest assistant response in the DOM."""
-        # 1. Try clean clipboard copy method
-        clipboard_text = await self._extract_via_copy_button(page)
-        if clipboard_text:
-            return clipboard_text
-
         try:
-            # 2. Check for ChatGPT stream paragraph blocks (e.g. data-assistant-stream-block)
+            # 1. Check for ChatGPT stream paragraph blocks (e.g. data-assistant-stream-block)
             stream_blocks = page.locator(
                 'p[data-assistant-stream-block], [data-assistant-stream-block], p[data-assistant-stream-block-index], [data-assistant-stream-block-index]'
             )
@@ -301,37 +356,46 @@ class ChatGPTWebPlanner(BasePlanner):
                     if t.strip():
                         texts.append(t.strip())
                 joined = "\n".join(texts)
-                if "actions" in joined or "post_id" in joined or "id" in joined:
+                if (
+                    not self._is_user_prompt_content(joined)
+                    and ("actions" in joined or "post_id" in joined or "id" in joined)
+                ):
                     return joined
 
-            # 3. Check if <pre><code> block is present
-            code_blocks = page.locator("pre code, pre")
+            # 2. Check if <pre><code> block is present inside assistant turn
+            code_blocks = page.locator(
+                '[data-message-author-role="assistant"] pre code, [data-message-author-role="assistant"] pre, pre code'
+            )
             if await code_blocks.count() > 0:
                 code_text = await code_blocks.last.inner_text()
-                if "actions" in code_text or "post_id" in code_text or "id" in code_text:
+                if (
+                    not self._is_user_prompt_content(code_text)
+                    and ("actions" in code_text or "post_id" in code_text or "id" in code_text)
+                ):
                     return code_text
 
-            # 4. Check assistant message role containers
+            # 3. Check assistant message role containers
             assistant_msgs = page.locator('[data-message-author-role="assistant"]')
             if await assistant_msgs.count() > 0:
                 text = await assistant_msgs.last.inner_text()
-                if text.strip() and ("actions" in text or "post_id" in text):
+                if (
+                    not self._is_user_prompt_content(text)
+                    and text.strip()
+                    and ("actions" in text or "post_id" in text)
+                ):
                     return text
 
-            # 5. Check markdown containers
-            md_blocks = page.locator("div.markdown, div[class*='markdown']")
+            # 4. Check markdown containers inside assistant turns
+            md_blocks = page.locator(
+                '[data-message-author-role="assistant"] div.markdown, div[data-testid*="conversation-turn-assistant"] div.markdown'
+            )
             if await md_blocks.count() > 0:
                 text = await md_blocks.last.inner_text()
-                if text.strip() and ("actions" in text or "post_id" in text):
-                    return text
-
-            # 6. Check conversation turns
-            turns = page.locator(
-                '[data-testid*="conversation-turn-assistant"], div[data-testid*="conversation-turn"]'
-            )
-            if await turns.count() > 0:
-                text = await turns.last.inner_text()
-                if text.strip() and ("actions" in text or "post_id" in text):
+                if (
+                    not self._is_user_prompt_content(text)
+                    and text.strip()
+                    and ("actions" in text or "post_id" in text)
+                ):
                     return text
 
         except Exception as e:
@@ -365,30 +429,32 @@ class ChatGPTWebPlanner(BasePlanner):
             ).first
             is_generating = await stop_btn.count() > 0 and await stop_btn.is_visible()
 
-            # First attempt: Try Copy button
-            copy_text = await self._extract_via_copy_button(page)
-            if copy_text:
-                try:
-                    plan = self._extract_json_from_text(copy_text)
-                    if plan and len(plan.actions) > 0:
-                        logger.info(
-                            f"Successfully parsed plan via Copy button ({len(plan.actions)} actions)."
-                        )
-                        return copy_text
-                except Exception:
-                    pass
+            # First attempt: Try Assistant Copy button ONLY when generation is NOT streaming
+            # This guarantees the assistant's action bar exists and avoids clicking the user prompt's copy button!
+            if not is_generating:
+                copy_text = await self._extract_via_copy_button(page)
+                if copy_text and not self._is_user_prompt_content(copy_text):
+                    try:
+                        plan = self._extract_json_from_text(copy_text)
+                        if plan and len(plan.actions) > 0:
+                            logger.info(
+                                f"Successfully parsed plan via Assistant Copy button ({len(plan.actions)} actions)."
+                            )
+                            return copy_text
+                    except Exception:
+                        pass
 
-            # Second attempt: Extract latest assistant text from DOM
+            # Second attempt: Extract latest assistant text directly from assistant DOM
             current_text = await self._get_latest_assistant_text(page)
 
-            if current_text:
+            if current_text and not self._is_user_prompt_content(current_text):
                 # If text is present, test if it's already a complete valid JSON plan
                 try:
                     plan = self._extract_json_from_text(current_text)
                     if plan and len(plan.actions) > 0:
                         if not is_generating or (current_text == last_text):
                             logger.info(
-                                f"Captured complete valid ActionPlan from ChatGPT ({len(plan.actions)} actions, {len(current_text)} chars)."
+                                f"Captured complete valid ActionPlan from ChatGPT assistant DOM ({len(plan.actions)} actions, {len(current_text)} chars)."
                             )
                             return current_text
                 except Exception:
