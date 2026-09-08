@@ -80,23 +80,29 @@ class Settings(BaseSettings):
         description="Gemini API Key for AI decision making.",
     )
     llm_model: str = Field(
-        default="gemini-2.5-flash-lite",
+        default="gemini-3.5-flash-lite",
         # default="gemini-3.6-flash",
         description="LLM model name to use for planning.",
     )
+    llm_max_output_tokens: int = Field(
+        default=8192,
+        description="Maximum output tokens for Gemini LLM response.",
+    )
+
 
     # User Profile & Strategy
     user_profile: str = Field(
         default=(
-            "Full-stack developer with 1 year and 8 months of experience. "
+            "Full-stack developer with 1 year and 9 months of experience. And built touchtorate.com "
             "Works with React, Next.js, Node.js, Python, TypeScript, and modern web tech. "
-            "Passionate about early-stage startups, indie products, tech job openings, and connecting casually with fellow devs."
+            "Passionate about early-stage startups, founders, indie products, tech job openings, and connecting casually with fellow devs."
+            "building touchtorate.com , a AI networking platform with real use of network not just increasing your connection count"
         ),
-        description="Persona and background info given to planner.",
+        description="Personal and background info given to planner.",
     )
     interaction_goal: str = Field(
         default=(
-            "Engage casually and organically with new startups, dev launches, tech openings, and developer takes. "
+            "Engage casually and organically with new startups, founders , new openings ,dev launches, tech openings, and developer takes. "
             "Drop short, friendly comments, leave random likes on cool projects, and build genuine connections."
         ),
         description="Core goal directing the AI planner.",
@@ -104,9 +110,9 @@ class Settings(BaseSettings):
     content_restrictions: List[str] = Field(
         default_factory=lambda: [
             "Sound 100% human, casual, and authentic (no AI or corporate buzzwords).",
-            "Keep replies very short (1-2 lines, under 120 characters).",
+            "Keep replies very short to short or medium (1-2 lines, under 200 characters).",
             "No generic bot praise like 'Great post' or 'Fascinating perspective'.",
-            "No offensive, toxic, or controversial statements.",
+            "not too offensive, toxic, or controversial statements.",
         ],
         description="Strict restrictions applied to generated comments and replies.",
     )

@@ -141,11 +141,23 @@ class RunService:
                         recent_history = await self.repository.get_recent_interactions(limit=10)
 
                         # Step E: AI Planner
-                        action_plan = await self.planner.plan(
-                            posts=batch_to_plan,
-                            remaining_budget=remaining_budget,
-                            recent_history=recent_history,
-                        )
+                        try:
+                            action_plan = await self.planner.plan(
+                                posts=batch_to_plan,
+                                remaining_budget=remaining_budget,
+                                recent_history=recent_history,
+                            )
+                        except Exception as plan_err:
+                            logger.error(
+                                f"Planning error for current batch: {plan_err}. Skipping batch and continuing scroll..."
+                            )
+                            action_plan = None
+
+                        if not action_plan or not action_plan.actions:
+                            await navigator.scroll_down(step_px=800, delay_seconds=2.5)
+                            self.run_state.metrics.scroll_count += 1
+                            continue
+
                         self.run_state.metrics.actions_proposed += len(action_plan.actions)
 
                         # Step F: Validation Layer

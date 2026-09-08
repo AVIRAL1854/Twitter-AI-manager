@@ -69,7 +69,7 @@ class AIPlanner(BasePlanner):
                     system_instruction=SYSTEM_PROMPT,
                     response_mime_type="application/json",
                     response_schema=ActionPlan,
-                    max_output_tokens=1024,
+                    max_output_tokens=self.settings.llm_max_output_tokens,
                     temperature=0.6,
                 ),
             )
@@ -77,8 +77,8 @@ class AIPlanner(BasePlanner):
             if not response.text:
                 raise PlanningError("Received empty response from Gemini Planner.")
 
-            # Parse structured output
-            plan = ActionPlan.model_validate_json(response.text)
+            # Parse structured output with resilient repair for truncated responses
+            plan = self._parse_and_validate_response(response.text)
             logger.info(f"AI Planner proposed {len(plan.actions)} actions.")
             return plan
 
@@ -86,6 +86,97 @@ class AIPlanner(BasePlanner):
             if isinstance(e, PlanningError):
                 raise
             raise PlanningError(f"AI Planner failed during execution: {e}") from e
+
+    @staticmethod
+    def _parse_and_validate_response(raw_text: str) -> ActionPlan:
+        """Parse Gemini output into ActionPlan with graceful recovery for truncated JSON."""
+        text = raw_text.strip()
+
+        # 1. Direct standard validation
+        try:
+            return ActionPlan.model_validate_json(text)
+        except Exception as e:
+            logger.warning(
+                f"Direct JSON validation failed ({e}). Attempting recovery for truncated JSON output..."
+            )
+
+        # 2. Extract markdown code blocks if wrapped
+        if "```" in text:
+            import re
+
+            code_blocks = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
+            for block in reversed(code_blocks):
+                try:
+                    return ActionPlan.model_validate_json(block.strip())
+                except Exception:
+                    pass
+
+        # 3. Truncated recovery: salvage all completed action objects before the cut-off
+        try:
+            import json
+            import re
+
+            actions_match = re.search(r'"actions"\s*:\s*\[', text)
+            if actions_match:
+                actions_start = actions_match.end()
+                completed_actions: List[dict] = []
+                idx = actions_start
+
+                while idx < len(text):
+                    obj_start = text.find("{", idx)
+                    if obj_start == -1:
+                        break
+
+                    depth = 0
+                    in_string = False
+                    escape = False
+                    obj_end = -1
+
+                    for i in range(obj_start, len(text)):
+                        c = text[i]
+                        if escape:
+                            escape = False
+                            continue
+                        if c == "\\":
+                            escape = True
+                            continue
+                        if c == '"':
+                            in_string = not in_string
+                            continue
+                        if not in_string:
+                            if c == "{":
+                                depth += 1
+                            elif c == "}":
+                                depth -= 1
+                                if depth == 0:
+                                    obj_end = i
+                                    break
+
+                    if obj_end != -1:
+                        candidate_str = text[obj_start : obj_end + 1]
+                        try:
+                            action_dict = json.loads(candidate_str)
+                            if "post_id" in action_dict or "id" in action_dict:
+                                completed_actions.append(action_dict)
+                        except Exception:
+                            pass
+                        idx = obj_end + 1
+                    else:
+                        # Incomplete/truncated object at the cut-off point
+                        break
+
+                if completed_actions:
+                    logger.warning(
+                        f"Successfully recovered {len(completed_actions)} completed actions from truncated JSON output."
+                    )
+                    repaired_json = json.dumps({"actions": completed_actions})
+                    return ActionPlan.model_validate_json(repaired_json)
+
+        except Exception as repair_err:
+            logger.debug(f"JSON repair error: {repair_err}")
+
+        # If recovery could not salvage any actions, re-raise original validation
+        return ActionPlan.model_validate_json(text)
 
 
 class MockPlanner(BasePlanner):

@@ -50,3 +50,74 @@ class TestPlanner:
         plan_zero = await planner.plan(posts=sample_normalized_posts, remaining_budget=0)
         assert len(plan_zero.actions) == 0
 
+    def test_ai_planner_parse_valid_json(self):
+        from app.planner.planner import AIPlanner
+
+        valid_json = """{
+            "actions": [
+                {
+                    "post_id": "111",
+                    "action": "like",
+                    "reason": "cool startup",
+                    "content": null,
+                    "priority": 1,
+                    "explore_thread": false,
+                    "interest_score": 7
+                }
+            ]
+        }"""
+        plan = AIPlanner._parse_and_validate_response(valid_json)
+        assert isinstance(plan, ActionPlan)
+        assert len(plan.actions) == 1
+        assert plan.actions[0].post_id == "111"
+        assert plan.actions[0].action == "like"
+
+    def test_ai_planner_parse_truncated_json_recovery(self):
+        from app.planner.planner import AIPlanner
+
+        # Simulate truncation mid-stream (similar to EOF while parsing a string at line 97: "content": "100%)
+        truncated_json = """{
+  "actions": [
+    {
+      "post_id": "111",
+      "action": "like",
+      "reason": "cool startup",
+      "content": null,
+      "priority": 1,
+      "explore_thread": false,
+      "interest_score": 7
+    },
+    {
+      "post_id": "222",
+      "action": "comment",
+      "reason": "relatable dev take",
+      "content": "100%"""
+
+        plan = AIPlanner._parse_and_validate_response(truncated_json)
+        assert isinstance(plan, ActionPlan)
+        assert len(plan.actions) == 1
+        assert plan.actions[0].post_id == "111"
+        assert plan.actions[0].action == "like"
+
+    def test_ai_planner_parse_markdown_wrapped_json(self):
+        from app.planner.planner import AIPlanner
+
+        md_json = """```json
+{
+  "actions": [
+    {
+      "post_id": "333",
+      "action": "skip",
+      "reason": "not relevant",
+      "content": null,
+      "priority": 1
+    }
+  ]
+}
+```"""
+        plan = AIPlanner._parse_and_validate_response(md_json)
+        assert isinstance(plan, ActionPlan)
+        assert len(plan.actions) == 1
+        assert plan.actions[0].post_id == "333"
+
+
