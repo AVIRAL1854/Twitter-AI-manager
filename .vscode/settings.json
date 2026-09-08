@@ -1,0 +1,13 @@
+{
+  "git.autorefresh": true,
+  "git.autoStash": true,
+  "git.detectSubmodules": false,
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.venv/**": true,
+    "**/browser_data/**": true,
+    "**/data/*.db": true
+  }
+}

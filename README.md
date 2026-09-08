@@ -159,23 +159,23 @@ uv run python main.py --login-chatgpt
 
 ## 🛠️ CLI Flags & Options Reference
 
-| Flag / Option        | Aliases                                                                 | Description                                                          | Default                             |
-| :------------------- | :---------------------------------------------------------------------- | :------------------------------------------------------------------- | :---------------------------------- |
-| `-n`                 | `--count`, `--limit`, `--target-posts`, `--max-interactions`            | Target number of interactions/posts to perform in the run            | `10`                                |
-| `-s`                 | `--max-scrolls`, `--max-scroll-attempts`, `--scroll-limit`              | Maximum feed scroll attempts before stopping                         | `10`                                |
-| **`-i`**             | **`--max-inner-interactions`, `--inner-limit`, `--inner-interactions`** | **Max comments to interact with inside a single post thread**        | **`10`**                            |
-| **`--no-deep-dive`** | **`--disable-deep-dive`**                                               | **Disable diving inside posts to interact with thread comments**     | _(Deep Dive is enabled by default)_ |
-| `--deep-dive`        | _(none)_                                                                | Explicitly enable diving inside posts                                | `True`                              |
-| `--target-url`       | _(none)_                                                                | Target URL (Home feed, search query, or list)                        | `https://x.com/home`                |
-| `--jugad`            | _(none)_                                                                | Use free ChatGPT Web interface via Playwright (zero API cost)        | `False`                             |
+| Flag / Option        | Aliases                                                                 | Description                                                           | Default                             |
+| :------------------- | :---------------------------------------------------------------------- | :-------------------------------------------------------------------- | :---------------------------------- |
+| `-n`                 | `--count`, `--limit`, `--target-posts`, `--max-interactions`            | Target number of interactions/posts to perform in the run             | `10`                                |
+| `-s`                 | `--max-scrolls`, `--max-scroll-attempts`, `--scroll-limit`              | Maximum feed scroll attempts before stopping                          | `10`                                |
+| **`-i`**             | **`--max-inner-interactions`, `--inner-limit`, `--inner-interactions`** | **Max comments to interact with inside a single post thread**         | **`10`**                            |
+| **`--no-deep-dive`** | **`--disable-deep-dive`**                                               | **Disable diving inside posts to interact with thread comments**      | _(Deep Dive is enabled by default)_ |
+| `--deep-dive`        | _(none)_                                                                | Explicitly enable diving inside posts                                 | `True`                              |
+| `--target-url`       | _(none)_                                                                | Target URL (Home feed, search query, or list)                         | `https://x.com/home`                |
+| `--jugad`            | _(none)_                                                                | Use free ChatGPT Web interface via Playwright (zero API cost)         | `False`                             |
 | `--nvidia`           | _(none)_                                                                | Use NVIDIA OpenRouter model (nemotron-3.5-content-safety:free)        | `False`                             |
-| `--try-nvidia`       | _(none)_                                                                | Test OpenRouter API connectivity and token usage with OPEN_ROUTER_KEY| `False`                             |
-| `--mock-ai`          | _(none)_                                                                | Use deterministic offline mock planner                               | `False`                             |
-| `--dry-run`          | _(none)_                                                                | Simulate discovery, planning, and validation without clicking/typing | `False`                             |
-| `--login`            | _(none)_                                                                | Open interactive browser to log in to X (Twitter)                    | `False`                             |
-| `--login-chatgpt`    | _(none)_                                                                | Open interactive browser to log in to ChatGPT                        | `False`                             |
-| `--headless`         | _(none)_                                                                | Run browser in background without opening GUI window                 | `False`                             |
-| `--debug`            | _(none)_                                                                | Enable detailed debug level logging                                  | `False`                             |
+| `--try-nvidia`       | _(none)_                                                                | Test OpenRouter API connectivity and token usage with OPEN_ROUTER_KEY | `False`                             |
+| `--mock-ai`          | _(none)_                                                                | Use deterministic offline mock planner                                | `False`                             |
+| `--dry-run`          | _(none)_                                                                | Simulate discovery, planning, and validation without clicking/typing  | `False`                             |
+| `--login`            | _(none)_                                                                | Open interactive browser to log in to X (Twitter)                     | `False`                             |
+| `--login-chatgpt`    | _(none)_                                                                | Open interactive browser to log in to ChatGPT                         | `False`                             |
+| `--headless`         | _(none)_                                                                | Run browser in background without opening GUI window                  | `False`                             |
+| `--debug`            | _(none)_                                                                | Enable detailed debug level logging                                   | `False`                             |
 
 ---
 

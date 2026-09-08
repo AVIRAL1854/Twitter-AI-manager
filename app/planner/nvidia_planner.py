@@ -297,3 +297,4 @@ async def test_nvidia_connection(settings: Settings) -> Dict[str, Any]:
             "error": str(e),
             "elapsed_ms": elapsed_ms,
         }
+
