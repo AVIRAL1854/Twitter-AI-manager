@@ -90,6 +90,16 @@ def parse_args() -> argparse.Namespace:
         help="Use free ChatGPT Web interface (chatgpt.com) via Playwright instead of Gemini API",
     )
     parser.add_argument(
+        "--nvidia",
+        action="store_true",
+        help="Use NVIDIA OpenRouter model (nemotron-3.5-content-safety:free) for AI planning via OPEN_ROUTER_KEY",
+    )
+    parser.add_argument(
+        "--try-nvidia",
+        action="store_true",
+        help="Test connectivity and sample response for the NVIDIA OpenRouter model using OPEN_ROUTER_KEY",
+    )
+    parser.add_argument(
         "--login",
         action="store_true",
         help="Open interactive browser window to manually log in to X (Twitter) and save persistent session",
@@ -132,6 +142,39 @@ async def async_main() -> int:
     if args.headless:
         settings.headless = True
 
+    # Check if NVIDIA test connection requested
+    if args.try_nvidia:
+        from app.planner.nvidia_planner import test_nvidia_connection
+
+        console.print("\n[bold cyan]🔍 Testing NVIDIA OpenRouter API connection...[/bold cyan]")
+        result = await test_nvidia_connection(settings)
+
+        table = Table(title="NVIDIA OpenRouter API Test Result", border_style="green" if result.get("success") else "red")
+        table.add_column("Property", style="cyan", no_wrap=True)
+        table.add_column("Value", style="white")
+
+        table.add_row("Status", "[bold green]SUCCESS (200 OK)[/bold green]" if result.get("success") else "[bold red]FAILED[/bold red]")
+        table.add_row("Target Model", str(result.get("model", settings.nvidia_model)))
+        table.add_row("Latency", f"{result.get('elapsed_ms', 0):.1f} ms")
+
+        api_key = settings.get_openrouter_api_key()
+        masked_key = f"{api_key[:12]}...{api_key[-4:]}" if api_key and len(api_key) > 16 else ("DETECTED" if api_key else "[red]NOT CONFIGURED[/red]")
+        table.add_row("OPEN_ROUTER_KEY", masked_key)
+
+        if result.get("success"):
+            usage = result.get("usage", {})
+            table.add_row("Prompt Tokens", str(usage.get("prompt_tokens", "N/A")))
+            table.add_row("Completion Tokens", str(usage.get("completion_tokens", "N/A")))
+            table.add_row("Response Sample", str(result.get("response_content", "")))
+            console.print(table)
+            console.print("[bold green]✔ NVIDIA OpenRouter calls are going out and returning successfully![/bold green]\n")
+            return 0
+        else:
+            table.add_row("Error", str(result.get("error", "Unknown error")))
+            console.print(table)
+            console.print("[bold red]✘ NVIDIA OpenRouter test call failed. Please verify OPEN_ROUTER_KEY in your .env file.[/bold red]\n")
+            return 1
+
     # Check if login setup mode requested
     if args.login:
         from app.browser.login import interactive_login
@@ -149,6 +192,9 @@ async def async_main() -> int:
     elif args.jugad:
         from app.planner.chatgpt_web import ChatGPTWebPlanner
         planner = ChatGPTWebPlanner(settings)
+    elif args.nvidia:
+        from app.planner.nvidia_planner import NvidiaOpenRouterPlanner
+        planner = NvidiaOpenRouterPlanner(settings)
 
     run_service = RunService(
         settings=settings,

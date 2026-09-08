@@ -88,6 +88,25 @@ class Settings(BaseSettings):
         default=8192,
         description="Maximum output tokens for Gemini LLM response.",
     )
+    open_router_key: Optional[str] = Field(
+        default=None,
+        description="OpenRouter API Key for NVIDIA and OpenRouter models.",
+    )
+    nvidia_model: str = Field(
+        default="nvidia/nemotron-3.5-content-safety:free",
+        description="NVIDIA/OpenRouter model identifier to use.",
+    )
+
+    def get_openrouter_api_key(self) -> Optional[str]:
+        """Resolve OpenRouter API key from settings or environment variables."""
+        import os
+        return (
+            self.open_router_key
+            or os.environ.get("OPEN_ROUTER_KEY")
+            or os.environ.get("OPENROUTER_API_KEY")
+            or os.environ.get("OPENROUTER_KEY")
+        )
+
 
 
     # User Profile & Strategy

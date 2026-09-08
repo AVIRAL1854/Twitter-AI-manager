@@ -168,6 +168,8 @@ uv run python main.py --login-chatgpt
 | `--deep-dive`        | _(none)_                                                                | Explicitly enable diving inside posts                                | `True`                              |
 | `--target-url`       | _(none)_                                                                | Target URL (Home feed, search query, or list)                        | `https://x.com/home`                |
 | `--jugad`            | _(none)_                                                                | Use free ChatGPT Web interface via Playwright (zero API cost)        | `False`                             |
+| `--nvidia`           | _(none)_                                                                | Use NVIDIA OpenRouter model (nemotron-3.5-content-safety:free)        | `False`                             |
+| `--try-nvidia`       | _(none)_                                                                | Test OpenRouter API connectivity and token usage with OPEN_ROUTER_KEY| `False`                             |
 | `--mock-ai`          | _(none)_                                                                | Use deterministic offline mock planner                               | `False`                             |
 | `--dry-run`          | _(none)_                                                                | Simulate discovery, planning, and validation without clicking/typing | `False`                             |
 | `--login`            | _(none)_                                                                | Open interactive browser to log in to X (Twitter)                    | `False`                             |
@@ -192,7 +194,20 @@ uv run python main.py -n 5 -i 2
 uv run python main.py --no-deep-dive -n 10
 ```
 
-### 2. Free ChatGPT Web Mode (`--jugad`)
+### 2. NVIDIA OpenRouter Mode (`--nvidia` & `--try-nvidia`)
+
+```bash
+# Verify your OpenRouter connection and test the NVIDIA Nemotron model
+uv run python main.py --try-nvidia
+
+# Run feed engagement using the NVIDIA OpenRouter model
+uv run python main.py --nvidia -n 5
+
+# Custom search topic + NVIDIA model + 8 post limit
+uv run python main.py --nvidia --target-url "https://x.com/search?q=buildinpublic&f=live" -n 8
+```
+
+### 3. Free ChatGPT Web Mode (`--jugad`)
 
 ```bash
 # Run with free ChatGPT Web planner + Deep Dive enabled
@@ -205,7 +220,7 @@ uv run python main.py --jugad -n 5 -s 5 -i 3
 uv run python main.py --jugad --target-url "https://x.com/search?q=buildinpublic&f=live" -n 8 -s 5
 ```
 
-### 3. Targeting Search Feeds & Topics
+### 4. Targeting Search Feeds & Topics
 
 ```bash
 # Target tech startup launch tweets with thread comment engagement
@@ -215,11 +230,14 @@ uv run python main.py --target-url "https://x.com/search?q=startup%20launch&f=li
 uv run python main.py --target-url "https://x.com/search?q=hiring%20fullstack%20remote&f=live" -n 5 -s 8
 ```
 
-### 4. Testing & Dry-Run Simulations
+### 5. Testing & Dry-Run Simulations
 
 ```bash
 # Test the complete pipeline safely without clicking or liking
 uv run python main.py --dry-run -n 5 -i 2
+
+# Test NVIDIA model in dry-run mode
+uv run python main.py --nvidia --dry-run -n 5
 
 # Test offline with Mock Planner (no API keys, no external browser for LLM)
 uv run python main.py --mock-ai --dry-run -n 5
