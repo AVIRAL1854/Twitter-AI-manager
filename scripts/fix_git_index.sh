@@ -14,3 +14,4 @@ git config --local core.filemode false
 git config --local core.checkStat minimal
 
 echo "✅ Git index restored and NTFS settings applied successfully!"
+
