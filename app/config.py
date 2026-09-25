@@ -97,6 +97,17 @@ class Settings(BaseSettings):
         description="NVIDIA/OpenRouter model identifier to use.",
     )
 
+    # Persona & Strategy
+    persona_file: str = Field(
+        default="persona.json",
+        description="Path to persona and interaction configuration JSON file.",
+    )
+
+    def get_persona(self):
+        """Load persona configuration from configured persona_file."""
+        from app.models.persona import PersonaConfig
+        return PersonaConfig.load_from_file(self.persona_file)
+
     def get_openrouter_api_key(self) -> Optional[str]:
         """Resolve OpenRouter API key from settings or environment variables."""
         import os
@@ -106,8 +117,6 @@ class Settings(BaseSettings):
             or os.environ.get("OPENROUTER_API_KEY")
             or os.environ.get("OPENROUTER_KEY")
         )
-
-
 
     # User Profile & Strategy
     user_profile: str = Field(
@@ -145,4 +154,5 @@ class Settings(BaseSettings):
 
 # Default singleton instance
 settings = Settings()
+
 

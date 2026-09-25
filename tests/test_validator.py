@@ -174,3 +174,84 @@ class TestActionValidator:
         )
         assert len(approved) == 0
 
+    def test_reject_post_with_negative_keywords(self, test_settings, sample_normalized_posts):
+        from app.models.persona import PersonaConfig
+        persona = PersonaConfig.default()
+        persona.what_to_not_interact_with.negative_keywords = ["crypto", "airdrop"]
+
+        # Modify sample post 101 text to include crypto
+        posts = [
+            sample_normalized_posts[0].model_copy(
+                update={"text": "Huge crypto airdrop giveaway happening now! Check it out."}
+            )
+        ]
+
+        validator = ActionValidator(test_settings, persona=persona)
+        plan = ActionPlan(
+            actions=[
+                ProposedAction(
+                    post_id="post_101",
+                    action="like",
+                    reason="Accidental proposal",
+                    priority=1,
+                )
+            ]
+        )
+        approved = validator.validate_plan(
+            plan=plan,
+            known_posts=posts,
+            interacted_post_ids=set(),
+            remaining_budget=5,
+        )
+        assert len(approved) == 0
+
+    def test_reject_blocked_author(self, test_settings, sample_normalized_posts):
+        from app.models.persona import PersonaConfig
+        persona = PersonaConfig.default()
+        persona.what_to_not_interact_with.blocked_accounts = ["@tech_builder"]
+
+        validator = ActionValidator(test_settings, persona=persona)
+        plan = ActionPlan(
+            actions=[
+                ProposedAction(
+                    post_id="post_101",
+                    action="like",
+                    reason="Proposed on blocked user",
+                    priority=1,
+                )
+            ]
+        )
+        approved = validator.validate_plan(
+            plan=plan,
+            known_posts=sample_normalized_posts,
+            interacted_post_ids=set(),
+            remaining_budget=5,
+        )
+        assert len(approved) == 0
+
+    def test_reject_comment_containing_negative_keywords(self, test_settings, sample_normalized_posts):
+        from app.models.persona import PersonaConfig
+        persona = PersonaConfig.default()
+        persona.what_to_not_interact_with.negative_keywords = ["memecoin"]
+
+        validator = ActionValidator(test_settings, persona=persona)
+        plan = ActionPlan(
+            actions=[
+                ProposedAction(
+                    post_id="post_101",
+                    action="comment",
+                    reason="Comment has forbidden keyword",
+                    content="Check out this new memecoin project!",
+                    priority=1,
+                )
+            ]
+        )
+        approved = validator.validate_plan(
+            plan=plan,
+            known_posts=sample_normalized_posts,
+            interacted_post_ids=set(),
+            remaining_budget=5,
+        )
+        assert len(approved) == 0
+
+

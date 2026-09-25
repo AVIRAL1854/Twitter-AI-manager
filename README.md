@@ -121,10 +121,33 @@ HEADLESS=false
 USER_DATA_DIR=./browser_data/x_profile
 CHATGPT_USER_DATA_DIR=./browser_data/chatgpt_profile
 DATABASE_PATH=./data/interactions.db
+```
 
-# User Profile & Strategic Engagement Goal
-USER_PROFILE="Full-stack developer with 1 year and 8 months of experience. Works with React, Next.js, Node.js, Python, TypeScript. Passionate about early-stage startups, indie products, and job openings."
-INTERACTION_GOAL="Engage casually and organically with new startups, dev launches, tech openings, and developer takes. Drop short, friendly comments, leave likes, and build genuine connections."
+### 3. Customize Persona & Interaction Rules (`persona.json`)
+
+All persona identity, target niches, and forbidden filters are defined in a clean standalone file: [`persona.json`](file:///run/media/aviral/New%20Volume/web%20development/Automatic-Social-media-agent/persona.json).
+
+You can easily customize:
+
+1. **Personality**:
+   - `name`, `role`, `bio`
+   - `tone` (e.g. casual, witty, Gen-Z developer, professional)
+   - `style_rules` (bullet list of tone constraints)
+   - `example_comments` (sample comments demonstrating your voice)
+2. **What To Interact With**:
+   - `topics` (startups, dev tools, hiring, memes)
+   - `keywords` (positive signal keywords)
+   - `preferred_actions` (when to like vs. comment)
+3. **What To NOT Interact With**:
+   - `topics` (crypto scams, politics, rage-bait)
+   - `negative_keywords` (posts containing these are strictly rejected)
+   - `blocked_accounts` (list of `@usernames` never to engage)
+   - `content_restrictions` (safety guidelines for drafted comments)
+
+Inspect your active persona at any time:
+
+```bash
+uv run python main.py --show-persona
 ```
 
 ---
@@ -174,6 +197,8 @@ uv run python main.py --login-chatgpt
 | `--dry-run`          | _(none)_                                                                | Simulate discovery, planning, and validation without clicking/typing  | `False`                             |
 | `--login`            | _(none)_                                                                | Open interactive browser to log in to X (Twitter)                     | `False`                             |
 | `--login-chatgpt`    | _(none)_                                                                | Open interactive browser to log in to ChatGPT                         | `False`                             |
+| `--persona`          | _(none)_                                                                | Path to custom persona JSON configuration file                        | `persona.json`                      |
+| `--show-persona`     | _(none)_                                                                | Display active persona, targets, and forbidden filters in terminal    | `False`                             |
 | `--headless`         | _(none)_                                                                | Run browser in background without opening GUI window                  | `False`                             |
 | `--debug`            | _(none)_                                                                | Enable detailed debug level logging                                   | `False`                             |
 

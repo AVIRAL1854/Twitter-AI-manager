@@ -110,6 +110,17 @@ def parse_args() -> argparse.Namespace:
         help="Open interactive browser window to manually log in to ChatGPT and save persistent session",
     )
     parser.add_argument(
+        "--persona",
+        type=str,
+        default=None,
+        help="Path to custom persona JSON configuration file (default: persona.json)",
+    )
+    parser.add_argument(
+        "--show-persona",
+        action="store_true",
+        help="Display active persona, target topics, and avoid filters in a formatted terminal table and exit",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug level logging",
@@ -141,6 +152,44 @@ async def async_main() -> int:
         settings.deep_dive_enabled = True
     if args.headless:
         settings.headless = True
+    if args.persona:
+        settings.persona_file = args.persona
+
+    # Check if persona display requested
+    if args.show_persona:
+        persona = settings.get_persona()
+        console.print(f"\n[bold cyan]👤 Active Persona Configuration ({settings.persona_file}):[/bold cyan]\n")
+
+        p_table = Table(title="Identity & Tone", border_style="bright_blue")
+        p_table.add_column("Field", style="cyan", no_wrap=True)
+        p_table.add_column("Details", style="white")
+        p_table.add_row("Name", persona.personality.name)
+        p_table.add_row("Role", persona.personality.role)
+        p_table.add_row("Bio", persona.personality.bio)
+        p_table.add_row("Tone", persona.personality.tone)
+        p_table.add_row("Style Rules", "\n".join(f"• {r}" for r in persona.personality.style_rules))
+        p_table.add_row("Example Comments", "\n".join(f'• "{ex}"' for ex in persona.personality.example_comments))
+        console.print(p_table)
+
+        t_table = Table(title="What To Interact With", border_style="green")
+        t_table.add_column("Category", style="cyan", no_wrap=True)
+        t_table.add_column("Details", style="white")
+        t_table.add_row("Target Topics", "\n".join(f"• {t}" for t in persona.what_to_interact_with.topics))
+        t_table.add_row("Keywords", ", ".join(persona.what_to_interact_with.keywords))
+        pref_str = "\n".join(f"• {k.replace('_', ' ').title()}: [bold green]{v}[/bold green]" for k, v in persona.what_to_interact_with.preferred_actions.items())
+        t_table.add_row("Preferred Actions", pref_str)
+        console.print(t_table)
+
+        a_table = Table(title="What To NOT Interact With (Avoid Rules)", border_style="red")
+        a_table.add_column("Category", style="cyan", no_wrap=True)
+        a_table.add_column("Details", style="white")
+        a_table.add_row("Forbidden Topics", "\n".join(f"• {t}" for t in persona.what_to_not_interact_with.topics))
+        a_table.add_row("Negative Keywords", ", ".join(f"[bold red]{kw}[/bold red]" for kw in persona.what_to_not_interact_with.negative_keywords))
+        blocked_str = ", ".join(persona.what_to_not_interact_with.blocked_accounts) if persona.what_to_not_interact_with.blocked_accounts else "[dim]None configured[/dim]"
+        a_table.add_row("Blocked Accounts", blocked_str)
+        a_table.add_row("Content Safety Rules", "\n".join(f"• {r}" for r in persona.what_to_not_interact_with.content_restrictions))
+        console.print(a_table)
+        return 0
 
     # Check if NVIDIA test connection requested
     if args.try_nvidia:

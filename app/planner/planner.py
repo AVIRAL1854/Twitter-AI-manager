@@ -62,11 +62,14 @@ class AIPlanner(BasePlanner):
                 f"Calling AI Planner with {len(posts)} posts (remaining budget: {remaining_budget})..."
             )
 
+            persona = self.settings.get_persona()
+            system_instruction = PromptBuilder.build_system_prompt(persona)
+
             response = await client.aio.models.generate_content(
                 model=self.settings.llm_model,
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_PROMPT,
+                    system_instruction=system_instruction,
                     response_mime_type="application/json",
                     response_schema=ActionPlan,
                     max_output_tokens=self.settings.llm_max_output_tokens,
@@ -198,15 +201,27 @@ class MockPlanner(BasePlanner):
         budget_used = 0
         priority = 1
 
-        dev_keywords = [
-            "startup", "launch", "hiring", "opening", "job", "build", "dev",
-            "fullstack", "react", "nextjs", "node", "python", "typescript",
-            "ai", "agent", "llm", "tool", "code", "software", "product", "stack"
-        ]
+        persona = self.settings.get_persona()
+        target_keywords = list(set(
+            [k.lower() for k in persona.what_to_interact_with.keywords]
+            + [
+                "startup", "launch", "hiring", "opening", "job", "build", "dev",
+                "fullstack", "react", "nextjs", "node", "python", "typescript",
+                "ai", "agent", "llm", "tool", "code", "software", "product", "stack",
+            ]
+        ))
+        negative_keywords = [k.lower() for k in persona.what_to_not_interact_with.negative_keywords]
+        blocked_accounts = [a.lower().lstrip("@") for a in persona.what_to_not_interact_with.blocked_accounts]
 
         for post in posts:
             text_lower = post.text.lower()
-            is_relevant = any(k in text_lower for k in dev_keywords)
+            author_lower = post.author_handle.lower().lstrip("@")
+
+            is_blocked = (
+                author_lower in blocked_accounts
+                or any(nk in text_lower for nk in negative_keywords)
+            )
+            is_relevant = not is_blocked and any(k in text_lower for k in target_keywords)
 
             if is_relevant and budget_used < remaining_budget:
                 if "comment" in self.settings.allowed_actions and (budget_used % 2 == 1):

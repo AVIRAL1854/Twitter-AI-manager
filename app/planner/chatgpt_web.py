@@ -644,11 +644,13 @@ class ChatGPTWebPlanner(BasePlanner):
         page = await self._ensure_browser()
 
         # Build prompt
+        persona = self.settings.get_persona()
+        system_prompt = PromptBuilder.build_system_prompt(persona)
         user_prompt = PromptBuilder.build_user_prompt(
-            self.settings, posts, remaining_budget, recent_history
+            self.settings, posts, remaining_budget, recent_history, persona=persona
         )
         full_prompt = (
-            f"{SYSTEM_PROMPT}\n\n"
+            f"{system_prompt}\n\n"
             f"{user_prompt}\n\n"
             "CRITICAL INSTRUCTIONS:\n"
             "- Do NOT repeat or echo the input profile, goal, or post list.\n"

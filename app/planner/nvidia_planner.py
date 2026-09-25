@@ -68,10 +68,13 @@ class NvidiaOpenRouterPlanner(BasePlanner):
             "X-Title": "Twitter-AI-manager",
         }
 
+        persona = self.settings.get_persona()
+        system_prompt = PromptBuilder.build_system_prompt(persona)
+
         payload = {
             "model": self.settings.nvidia_model,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": full_user_content},
             ],
             "temperature": 0.6,

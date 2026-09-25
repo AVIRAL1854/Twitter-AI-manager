@@ -1,38 +1,71 @@
 """Prompt templates and builder for the AI Planning Layer."""
 
 import json
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 from app.config import Settings
 from app.memory.models import InteractionRecord
 from app.models.post import NormalizedPost
 
-SYSTEM_PROMPT = """You are a full-stack developer with 1 year and 8 months of experience hanging out on tech Twitter/X.
-
-YOUR PERSONA & VIBE:
-- Full-stack developer (React, Next.js, Node, Python, TypeScript, Postgres, dev tools, AI).
-- Highly interested in: new startup launches, indie products ("building in public", "show hn"), new hiring/job openings, dev discussions, relatable coding takes, and making organic connections.
-- Tone: VERY casual, chill, friendly, toxic , GENZ and 100% human. Talk like a real dev replying from their phone or terminal.
-- NEVER sound like a corporate bot or an AI. Never use phrases like "Fascinating perspective!", "Insightful post!", "Kudos on your remarkable milestone!", "I completely agree with your analysis.", or "As a developer...".
-
-HOW YOU INTERACT:
-- "comment" / "reply": 1 short natural sentence or quick question (under 120 chars). Examples:
-  * Startup launch: "looks super clean, what stack did you build this with?" / "congrats on the launch! loving the ui" / "is it open source?"
-  * Job/opening: "awesome role! is this open to remote?" / "excited to see the team growing"
-  * Tech/dev post: "ran into this exact nextjs bug yesterday haha" / "underrated approach tbh" / "100% agree on this"
-- "like": Leave likes on cool projects, relatable dev memes, insightful tips, or interesting startup milestones.
-- "skip": Skip ads, irrelevant crypto spam, politics, low quality, or unrelated noise.
-
-TOKEN ECONOMY RULES:
-- "reason": Ultra-short (3-6 words max, e.g. "cool startup launch", "hiring post", "relatable dev take", "irrelevant").
-- "content": 1-2 short casual lines max.
-- "priority": 1 (highest) to N.
-- "explore_thread": set to true if the post is exceptionally interesting or has active startup/dev discussions worth interacting with other comments inside.
-- Return ONLY the strict JSON ActionPlan.
-"""
+if TYPE_CHECKING:
+    from app.models.persona import PersonaConfig
 
 
 class PromptBuilder:
     """Builds token-optimized prompt context for LLM planner calls."""
+
+    @staticmethod
+    def build_system_prompt(persona: Optional["PersonaConfig"] = None) -> str:
+        """Construct rich system instructions dynamically from persona configuration."""
+        if persona is None:
+            from app.models.persona import PersonaConfig
+            persona = PersonaConfig.load_from_file()
+
+        p = persona.personality
+        targets = persona.what_to_interact_with
+        avoid = persona.what_to_not_interact_with
+
+        rules_list = "\n".join(f"- {rule}" for rule in p.style_rules)
+        examples_list = "\n".join(f'  * "{ex}"' for ex in p.example_comments)
+        topics_list = "\n".join(f"- {topic}" for topic in targets.topics)
+        keywords_str = ", ".join(targets.keywords)
+        avoid_topics_list = "\n".join(f"- {topic}" for topic in avoid.topics)
+        avoid_keywords_str = ", ".join(avoid.negative_keywords)
+        restrictions_list = "\n".join(f"- {r}" for r in avoid.content_restrictions)
+
+        return f"""You are {p.name}, a {p.role} hanging out on tech Twitter/X.
+
+BIO & IDENTITY:
+{p.bio}
+
+TONE & STYLE:
+- Tone: {p.tone}
+{rules_list}
+
+REPRESENTATIVE EXAMPLE COMMENTS & REPLIES:
+{examples_list}
+
+WHAT TO INTERACT WITH (PRIORITIZE THESE):
+{topics_list}
+Target Keywords: {keywords_str}
+
+WHAT TO STRICTLY AVOID / SKIP (NEVER INTERACT WITH):
+{avoid_topics_list}
+Forbidden Keywords: {avoid_keywords_str}
+Safety Restrictions:
+{restrictions_list}
+
+HOW YOU INTERACT:
+- "comment" / "reply": 1 short natural sentence or quick question (under 140 chars) adhering to your persona.
+- "like": Leave likes on cool projects, relatable dev memes, insightful tips, or interesting startup milestones.
+- "skip": Always skip ads, irrelevant crypto spam, politics, low quality, or unrelated noise.
+
+TOKEN ECONOMY RULES:
+- "reason": Ultra-short (3-6 words max, e.g. "cool startup launch", "hiring post", "relatable dev take", "crypto spam").
+- "content": 1-2 short casual lines max (or null for like/skip).
+- "priority": 1 (highest) to N.
+- "explore_thread": set to true if the post is exceptionally interesting or has active startup/dev discussions worth interacting with other comments inside.
+- Return ONLY the strict JSON ActionPlan.
+"""
 
     @staticmethod
     def build_user_prompt(
@@ -40,8 +73,12 @@ class PromptBuilder:
         posts: List[NormalizedPost],
         remaining_budget: int,
         recent_history: Optional[List[InteractionRecord]] = None,
+        persona: Optional["PersonaConfig"] = None,
     ) -> str:
-        """Construct compact prompt combining user settings, history, and posts batch."""
+        """Construct compact prompt combining user settings, persona, history, and posts batch."""
+        if persona is None:
+            persona = settings.get_persona()
+
         posts_data = [p.to_planner_dict() for p in posts]
 
         history_summary = []
@@ -53,13 +90,17 @@ class PromptBuilder:
         history_str = ", ".join(history_summary) if history_summary else "none"
 
         prompt_dict = {
-            "profile": settings.user_profile,
-            "goal": settings.interaction_goal,
+            "profile": settings.user_profile or (persona.personality.bio if persona else ""),
+            "goal": settings.interaction_goal or (", ".join(persona.what_to_interact_with.topics) if persona else ""),
             "allowed": settings.allowed_actions,
             "budget": remaining_budget,
             "recent_actions": history_str,
             "posts": posts_data,
         }
+
+        if persona:
+            prompt_dict["target_topics"] = persona.what_to_interact_with.topics
+            prompt_dict["avoid_topics"] = persona.what_to_not_interact_with.topics
 
         return f"""Evaluate these posts and return your ActionPlan JSON:
 
@@ -67,3 +108,7 @@ class PromptBuilder:
 {json.dumps(prompt_dict, separators=(',', ':'))}
 ```
 """
+
+
+# Default module-level prompt for backwards compatibility
+SYSTEM_PROMPT = PromptBuilder.build_system_prompt()
