@@ -69,6 +69,9 @@ class BrowserNavigator:
     async def scroll_down(self, step_px: int = 600, delay_seconds: float = 2.0) -> None:
         """Smoothly scroll down to load more posts in the infinite feed."""
         try:
+            from app.browser.modals import dismiss_x_modals
+            await dismiss_x_modals(self.page)
+
             logger.debug(f"Scrolling down by {step_px}px...")
             await self.page.evaluate(f"window.scrollBy({{top: {step_px}, behavior: 'smooth'}})")
             await asyncio.sleep(delay_seconds)

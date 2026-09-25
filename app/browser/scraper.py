@@ -21,6 +21,9 @@ class BrowserScraper:
         """Locate visible tweet elements on the page, parse and normalize them."""
         normalized_posts: List[NormalizedPost] = []
         try:
+            from app.browser.modals import dismiss_x_modals
+            await dismiss_x_modals(self.page)
+
             tweet_locators = self.page.locator('article[data-testid="tweet"]')
             total_elements = await tweet_locators.count()
             logger.debug(f"Found {total_elements} tweet DOM elements on page.")
